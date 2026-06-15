@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スマホ対応！かんたん文字起こし</title>
+    <style>
+        /* 全体の見た目を整える（デザイン） */
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: #1a73e8;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+
+        /* 文字起こし結果を表示するエリア */
+        #result-area {
+            width: 100%;
+            height: 300px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            box-sizing: border-box;
+            background-color: #fafafa;
+            margin-bottom: 20px;
+        }
+
+        /* ボタンのエリア */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            /* スマホでタップしたときの余計なハイライトを消す */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* スタートボタン（緑） */
+        #start-btn {
+            background-color: #34a853;
+            color: white;
+        }
+
+        #start-btn.recording {
+            background-color: #ea4335; /* 録音中は赤色にする */
+        }
+
+        /* クリアボタン（灰色） */
+        #clear-btn {
+            background-color: #9aa0a6;
+            color: white;
+        }
+
+        /* 状態を表示するテキスト */
+        #status {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎙️ スマホ文字起こしアプリ</h1>
+
+    <div class="container">
+        <textarea id="result-area" placeholder="ここに文字こしの結果が表示されます..." readonly></textarea>
+        
+        <div class="btn-group">
+            <button id="start-btn">スタート</button>
+            <button id="clear-btn">クリア</button>
+        </div>
+
+        <div id="status">停止中</div>
+    </div>
+
+    <script>
+        // 画面の要素（ボタンやテキストエリア）をJavaScriptに登録する
+        const startBtn = document.getElementById('start-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const resultArea = document.getElementById('result-area');
+        const statusText = document.getElementById('status');
+
+        // スマホやブラウザの種類に合わせて、音声認識の機能を準備する
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        let recognition;
+        let isRecording = false; // 今、録音中かどうかを覚えておく変数
+
+        // ブラウザが音声認識に対応しているかチェック
+        if (!SpeechRecognition) {
+            alert('お使いのブラウザは音声認識に対応していません。iPhoneはSafari、AndroidはChromeで試してみてね！');
+        } else {
+            // 音声認識の設定
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ja-JP'; // 日本語に設定
+            recognition.interimResults = true; // 話している途中の言葉も表示する
+            recognition.continuous = true; // 話し終わっても自動で終了せず、ずっと聴き続ける
+
+            // 音声をキャッチしたときの処理
+            recognition.onresult = (event) => {
+                let finalTranscript = ''; // 確定した文字
+                let interimTranscript = ''; // まだ考えている途中の文字
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                // 画面のテキストエリアに文字を表示する
+                // 確定した文字の後ろに、考えている途中の文字を足して表示
+                if (finalTranscript !== '') {
+                    resultArea.value += finalTranscript + '\n';
+                    // 文字が増えたら、自動で一番下までスクロールする
+                    resultArea.scrollTop = resultArea.scrollHeight;
+                }
+            };
+
+            // エラーが発生したとき
+            recognition.onerror = (event) => {
+                console.error(event.error);
+                if (event.error === 'not-allowed') {
+                    alert('マイクの許可がありません。スマホの設定からマイクをオンにしてください。');
+                }
+                stopRecording();
+            };
+
+            // 音声認識が勝手に切れてしまったら、録音中なら自動で再開する（スマホ対策）
+            recognition.onend = () => {
+                if (isRecording) {
+                    recognition.start();
+                }
+            };
+        }
+
+        // 録音をスタートする関数
+        function startRecording() {
+            isRecording = true;
+            recognition.start();
+            startBtn.textContent = 'ストップ';
+            startBtn.classList.add('recording');
+            statusText.textContent = '音声を聞き取っています...';
+        }
+
+        // 録音をストップする関数
+        function stopRecording() {
+            isRecording = false;
+            recognition.stop();
+            startBtn.textContent = 'スタート';
+            startBtn.classList.remove('recording');
+            statusText.textContent = '停止中';
+        }
+
+        // スタート/ストップボタンが押されたときの動き
+        startBtn.addEventListener('click', () => {
+            if (!recognition) return;
+
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+
+        // クリアボタンが押されたときの動き
+        clearBtn.addEventListener('click', () => {
+            if (confirm('文字起こしの結果を消してもよろしいですか？')) {
+                resultArea.value = '';
+            }
+        });
+    </script>
+</body>
+</html>
