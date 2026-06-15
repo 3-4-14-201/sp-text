@@ -64,7 +64,7 @@
             transition: background-color 0.3s;
         }
 
-        /* --- カスタム：文字サイズ変更用のコントロール --- */
+        /* --- 文字サイズ変更用のコントロール --- */
         .control-panel {
             display: flex;
             justify-content: space-between;
@@ -98,7 +98,7 @@
             border: 2px solid var(--border-color);
             border-radius: 10px;
             padding: 15px;
-            font-size: 1rem; /* 初期サイズ（中） */
+            font-size: 1rem;
             line-height: 1.6;
             resize: none;
             outline: none;
@@ -112,7 +112,7 @@
         /* --- ボタン全体のデザイン --- */
         .btn-group {
             display: grid;
-            grid-template-columns: 2fr 1fr; /* スタートを大きく、クリアを少し小さく */
+            grid-template-columns: 2fr 1fr;
             gap: 10px;
             margin-bottom: 10px;
         }
@@ -145,7 +145,7 @@
             color: white;
         }
 
-        /* --- カスタム：ワンタップコピーボタン --- */
+        /* --- ワンタップコピーボタン --- */
         #copy-btn {
             width: 100%;
             background-color: #1a73e8;
@@ -213,13 +213,10 @@
                 let finalTranscript = '';
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    // 話し終わって「確定」した文字だけを処理する
                     if (event.results[i].isFinal) {
                         let text = event.results[i][0].transcript;
                         
-                        // カスタム：自動で「。」と「改行」を入れる
                         if (text.length > 0) {
-                            // もし文字の最後にすでに「。」などがなければ付け足す
                             if (!text.endsWith('。') && !text.endsWith('？') && !text.endsWith('！')) {
                                 text += '。';
                             }
@@ -246,7 +243,6 @@
             };
         }
 
-        // 録音コントロール
         function startRecording() {
             isRecording = true;
             recognition.start();
@@ -274,24 +270,22 @@
             }
         });
 
-        // 🛠️ カスタム1：ワンタップコピー機能
+        // 🛠️ コピー機能（色指定のエラーを修正しました）
         copyBtn.addEventListener('click', () => {
             if (resultArea.value === '') {
                 alert('コピーする文字がありません。');
                 return;
             }
             
-            // クリップボードに文字をコピーする命令
             navigator.clipboard.writeText(resultArea.value)
                 .then(() => {
-                    // 成功したらボタンの文字を一時的に変える演出
                     const originalText = copyBtn.textContent;
                     copyBtn.textContent = '✅ コピーしました！';
-                    copyBtn.style.backgroundColor = #34a853; // 緑色にする
+                    copyBtn.style.backgroundColor = '#34a853'; // ここを修正しました
                     
                     setTimeout(() => {
                         copyBtn.textContent = originalText;
-                        copyBtn.style.backgroundColor = ''; // 元の色に戻す
+                        copyBtn.style.backgroundColor = '';
                     }, 1500);
                 })
                 .catch(err => {
@@ -299,7 +293,7 @@
                 });
         });
 
-        // 🛠️ カスタム2：文字サイズ変更機能
+        // 🛠️ 文字サイズ変更機能
         const sizeButtons = {
             'size-s': '0.8rem',
             'size-m': '1rem',
@@ -308,16 +302,13 @@
 
         Object.keys(sizeButtons).forEach(id => {
             document.getElementById(id).addEventListener('click', (e) => {
-                // すべてのサイズボタンから「active」クラスを消す
                 document.querySelectorAll('.size-buttons .mini-btn').forEach(btn => btn.classList.remove('active'));
-                // クリックされたボタンに「active」をつける
                 e.target.classList.add('active');
-                // テキストエリアの文字サイズを変更
                 resultArea.style.fontSize = sizeButtons[id];
             });
         });
 
-        // 🛠️ カスタム3：ダークモード切り替え機能
+        // 🛠️ ダークモード切り替え機能
         themeBtn.addEventListener('click', () => {
             const currentTheme = document.documentElement.getAttribute('data-theme');
             if (currentTheme === 'dark') {
