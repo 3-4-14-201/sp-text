@@ -3,69 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スマホ対応！かんたん文字起こし</title>
+    <title>最強カスタム！スマホ文字起こし</title>
     <style>
-        /* 全体の見た目を整える（デザイン） */
+        /* --- 基本の変数設定（ダークモード切り替え用） --- */
+        :root {
+            --bg-color: #f0f2f5;
+            --container-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
+            --textarea-bg: #fafafa;
+            --status-color: #666666;
+        }
+
+        /* ダークモードの時の色設定 */
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #ffffff;
+            --border-color: #333333;
+            --textarea-bg: #252525;
+            --status-color: #aaaaaa;
+        }
+
+        /* --- 全体のデザイン --- */
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f0f2f5;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
             padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            color: #333;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 15px;
         }
 
         h1 {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             color: #1a73e8;
-            margin-bottom: 20px;
+            margin: 0;
         }
 
         .container {
             width: 100%;
             max-width: 500px;
-            background: white;
+            background: var(--container-bg);
             padding: 20px;
             border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             box-sizing: border-box;
+            transition: background-color 0.3s;
         }
 
-        /* 文字起こし結果を表示するエリア */
+        /* --- カスタム：文字サイズ変更用のコントロール --- */
+        .control-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .size-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .mini-btn {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            background-color: #e8f0fe;
+            color: #1a73e8;
+            border: 1px solid #1a73e8;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .mini-btn.active {
+            background-color: #1a73e8;
+            color: white;
+        }
+
+        /* --- 文字起こし結果のエリア --- */
         #result-area {
             width: 100%;
             height: 300px;
-            border: 2px solid #e0e0e0;
+            border: 2px solid var(--border-color);
             border-radius: 10px;
             padding: 15px;
-            font-size: 1rem;
+            font-size: 1rem; /* 初期サイズ（中） */
             line-height: 1.6;
             resize: none;
             outline: none;
             box-sizing: border-box;
-            background-color: #fafafa;
-            margin-bottom: 20px;
+            background-color: var(--textarea-bg);
+            color: var(--text-color);
+            margin-bottom: 15px;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
         }
 
-        /* ボタンのエリア */
+        /* --- ボタン全体のデザイン --- */
         .btn-group {
-            display: flex;
+            display: grid;
+            grid-template-columns: 2fr 1fr; /* スタートを大きく、クリアを少し小さく */
             gap: 10px;
-            width: 100%;
+            margin-bottom: 10px;
         }
 
         button {
-            flex: 1;
             padding: 15px;
             font-size: 1rem;
             font-weight: bold;
             border: none;
             border-radius: 10px;
             cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            /* スマホでタップしたときの余計なハイライトを消す */
+            transition: background-color 0.2s, transform 0.1s;
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -73,102 +132,113 @@
             transform: scale(0.98);
         }
 
-        /* スタートボタン（緑） */
         #start-btn {
             background-color: #34a853;
             color: white;
         }
-
         #start-btn.recording {
-            background-color: #ea4335; /* 録音中は赤色にする */
+            background-color: #ea4335;
         }
 
-        /* クリアボタン（灰色） */
         #clear-btn {
             background-color: #9aa0a6;
             color: white;
         }
 
-        /* 状態を表示するテキスト */
+        /* --- カスタム：ワンタップコピーボタン --- */
+        #copy-btn {
+            width: 100%;
+            background-color: #1a73e8;
+            color: white;
+            margin-bottom: 15px;
+        }
+
         #status {
             font-size: 0.9rem;
-            color: #666;
-            margin-top: 10px;
+            color: var(--status-color);
             text-align: center;
         }
     </style>
 </head>
 <body>
 
-    <h1>🎙️ スマホ文字起こしアプリ</h1>
+    <div class="header-area">
+        <h1>🎙️ 高機能文字起こし</h1>
+        <button id="theme-btn" class="mini-btn">🌙 ダーク</button>
+    </div>
 
     <div class="container">
-        <textarea id="result-area" placeholder="ここに文字こしの結果が表示されます..." readonly></textarea>
+        <div class="control-panel">
+            <span style="font-size: 0.8rem;">文字サイズ:</span>
+            <div class="size-buttons">
+                <button class="mini-btn" id="size-s">小</button>
+                <button class="mini-btn active" id="size-m">中</button>
+                <button class="mini-btn" id="size-l">大</button>
+            </div>
+        </div>
+
+        <textarea id="result-area" placeholder="ここに文字起こしの結果が表示されます..." readonly></textarea>
         
         <div class="btn-group">
             <button id="start-btn">スタート</button>
             <button id="clear-btn">クリア</button>
         </div>
 
+        <button id="copy-btn">📋 画面の文字をコピーする</button>
+
         <div id="status">停止中</div>
     </div>
 
     <script>
-        // 画面の要素（ボタンやテキストエリア）をJavaScriptに登録する
         const startBtn = document.getElementById('start-btn');
         const clearBtn = document.getElementById('clear-btn');
+        const copyBtn = document.getElementById('copy-btn');
+        const themeBtn = document.getElementById('theme-btn');
         const resultArea = document.getElementById('result-area');
         const statusText = document.getElementById('status');
 
-        // スマホやブラウザの種類に合わせて、音声認識の機能を準備する
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
         let recognition;
-        let isRecording = false; // 今、録音中かどうかを覚えておく変数
+        let isRecording = false;
 
-        // ブラウザが音声認識に対応しているかチェック
         if (!SpeechRecognition) {
-            alert('お使いのブラウザは音声認識に対応していません。iPhoneはSafari、AndroidはChromeで試してみてね！');
+            alert('お使いのブラウザは音声認識に対応していません。iPhoneはSafari、AndroidはChromeで試してね！');
         } else {
-            // 音声認識の設定
             recognition = new SpeechRecognition();
-            recognition.lang = 'ja-JP'; // 日本語に設定
-            recognition.interimResults = true; // 話している途中の言葉も表示する
-            recognition.continuous = true; // 話し終わっても自動で終了せず、ずっと聴き続ける
+            recognition.lang = 'ja-JP';
+            recognition.interimResults = true;
+            recognition.continuous = true;
 
-            // 音声をキャッチしたときの処理
             recognition.onresult = (event) => {
-                let finalTranscript = ''; // 確定した文字
-                let interimTranscript = ''; // まだ考えている途中の文字
+                let finalTranscript = '';
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
+                    // 話し終わって「確定」した文字だけを処理する
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
-                    } else {
-                        interimTranscript += transcript;
+                        let text = event.results[i][0].transcript;
+                        
+                        // カスタム：自動で「。」と「改行」を入れる
+                        if (text.length > 0) {
+                            // もし文字の最後にすでに「。」などがなければ付け足す
+                            if (!text.endsWith('。') && !text.endsWith('？') && !text.endsWith('！')) {
+                                text += '。';
+                            }
+                            finalTranscript += text + '\n';
+                        }
                     }
                 }
 
-                // 画面のテキストエリアに文字を表示する
-                // 確定した文字の後ろに、考えている途中の文字を足して表示
                 if (finalTranscript !== '') {
-                    resultArea.value += finalTranscript + '\n';
-                    // 文字が増えたら、自動で一番下までスクロールする
+                    resultArea.value += finalTranscript;
                     resultArea.scrollTop = resultArea.scrollHeight;
                 }
             };
 
-            // エラーが発生したとき
             recognition.onerror = (event) => {
                 console.error(event.error);
-                if (event.error === 'not-allowed') {
-                    alert('マイクの許可がありません。スマホの設定からマイクをオンにしてください。');
-                }
                 stopRecording();
             };
 
-            // 音声認識が勝手に切れてしまったら、録音中なら自動で再開する（スマホ対策）
             recognition.onend = () => {
                 if (isRecording) {
                     recognition.start();
@@ -176,7 +246,7 @@
             };
         }
 
-        // 録音をスタートする関数
+        // 録音コントロール
         function startRecording() {
             isRecording = true;
             recognition.start();
@@ -185,7 +255,6 @@
             statusText.textContent = '音声を聞き取っています...';
         }
 
-        // 録音をストップする関数
         function stopRecording() {
             isRecording = false;
             recognition.stop();
@@ -194,21 +263,69 @@
             statusText.textContent = '停止中';
         }
 
-        // スタート/ストップボタンが押されたときの動き
         startBtn.addEventListener('click', () => {
             if (!recognition) return;
-
-            if (isRecording) {
-                stopRecording();
-            } else {
-                startRecording();
-            }
+            if (isRecording) { stopRecording(); } else { startRecording(); }
         });
 
-        // クリアボタンが押されたときの動き
         clearBtn.addEventListener('click', () => {
             if (confirm('文字起こしの結果を消してもよろしいですか？')) {
                 resultArea.value = '';
+            }
+        });
+
+        // 🛠️ カスタム1：ワンタップコピー機能
+        copyBtn.addEventListener('click', () => {
+            if (resultArea.value === '') {
+                alert('コピーする文字がありません。');
+                return;
+            }
+            
+            // クリップボードに文字をコピーする命令
+            navigator.clipboard.writeText(resultArea.value)
+                .then(() => {
+                    // 成功したらボタンの文字を一時的に変える演出
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = '✅ コピーしました！';
+                    copyBtn.style.backgroundColor = #34a853; // 緑色にする
+                    
+                    setTimeout(() => {
+                        copyBtn.textContent = originalText;
+                        copyBtn.style.backgroundColor = ''; // 元の色に戻す
+                    }, 1500);
+                })
+                .catch(err => {
+                    alert('コピーに失敗しました: ' + err);
+                });
+        });
+
+        // 🛠️ カスタム2：文字サイズ変更機能
+        const sizeButtons = {
+            'size-s': '0.8rem',
+            'size-m': '1rem',
+            'size-l': '1.4rem'
+        };
+
+        Object.keys(sizeButtons).forEach(id => {
+            document.getElementById(id).addEventListener('click', (e) => {
+                // すべてのサイズボタンから「active」クラスを消す
+                document.querySelectorAll('.size-buttons .mini-btn').forEach(btn => btn.classList.remove('active'));
+                // クリックされたボタンに「active」をつける
+                e.target.classList.add('active');
+                // テキストエリアの文字サイズを変更
+                resultArea.style.fontSize = sizeButtons[id];
+            });
+        });
+
+        // 🛠️ カスタム3：ダークモード切り替え機能
+        themeBtn.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+                themeBtn.textContent = '🌙 ダーク';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                themeBtn.textContent = '☀️ ライト';
             }
         });
     </script>
