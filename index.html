@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>不屈の文字起こしアプリ</title>
+    <title>文字起こしアプリ</title>
     <style>
         body {
             font-family: sans-serif;
@@ -57,7 +57,6 @@
     
     <button id="startBtn" onclick="startListening()">スタート</button>
     <button id="stopBtn" onclick="stopListening()" disabled>ストップ</button>
-    
     <div id="status">状態: 停止中</div>
     
     <textarea id="textarea" placeholder="ここに文字起こしが表示されます..."></textarea>
@@ -65,9 +64,8 @@
 
 <script>
 let recognition;
-let isRecording = false; 
+let isRecording = false; // ユーザーの録音意思を管理する絶対的なフラグ
 
-// 音声認識の初期化関数
 function initSpeechRecognition() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
@@ -84,7 +82,7 @@ function initSpeechRecognition() {
     recognition.interimResults = true; 
     recognition.continuous = true;     
 
-    // 文字が入力されたとき
+    // 音声を文字に変換できたときの処理
     recognition.onresult = (event) => {
         let finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -95,12 +93,13 @@ function initSpeechRecognition() {
         if (finalTranscript) {
             const textarea = document.getElementById('textarea');
             textarea.value += finalTranscript;
-            textarea.scrollTop = textarea.scrollHeight; 
+            textarea.scrollTop = textarea.scrollHeight; // 常に最新の行へスクロール
         }
     };
 
-    // 自動停止を検知したとき
+    // ブラウザが勝手に音声認識を止めたときの処理
     recognition.onend = () => {
+        // ストップボタンが押されていないのに止まったら、強制再起動
         if (isRecording) {
             updateStatus("自動停止を検知。再起動中...");
             safeStart();
@@ -109,10 +108,11 @@ function initSpeechRecognition() {
         }
     };
 
-    // エラーが起きたとき
+    // エラーが起きたときの処理
     recognition.onerror = (event) => {
         console.error("音声認識エラー:", event.error);
         if (isRecording) {
+            // エラー直後の連続衝突を防ぐため、0.5秒待ってから再起動
             setTimeout(() => {
                 safeStart();
             }, 500);
@@ -122,26 +122,25 @@ function initSpeechRecognition() {
     return true;
 }
 
-// 安全に起動する関数
+// 重複起動エラーを回避しながら安全にスタートする関数
 function safeStart() {
     try {
         recognition.start();
         updateStatus("状態: 録音・文字起こし中...");
     } catch (e) {
-        console.log("再起動を試みましたが、すでに起動中でした:", e.message);
+        console.log("すでに起動中、または準備中でした。処理をスキップします:", e.message);
     }
 }
 
-// 状態表示を切り替えるヘルパー関数
+// 状態表示テキストを書き換える関数
 function updateStatus(text) {
     document.getElementById('status').innerText = text;
 }
 
-// ★スタートボタンを押したとき
+// スタートボタンを押したとき
 function startListening() {
     if (isRecording) return; 
     
-    // 初期化に失敗（未対応ブラウザなど）したら処理を抜ける
     if (!initSpeechRecognition()) return;
 
     isRecording = true;
@@ -151,9 +150,9 @@ function startListening() {
     safeStart();
 }
 
-// ★ストップボタンを押したとき
+// ストップボタンを押したとき
 function stopListening() {
-    isRecording = false; 
+    isRecording = false; // フラグを折る（これでonendの再起動が走らなくなります）
     
     document.getElementById('startBtn').disabled = false;
     document.getElementById('stopBtn').disabled = true;
