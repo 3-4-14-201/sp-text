@@ -1,276 +1,89 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>15分連続稼働！スマホ対応文字起こしアプリ</title>
-    <style>
-        /* 全体の見た目を整える（デザイン） */
-        body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: #333;
-        }
+let recognition;
+let isRecording = false; // 現在、ユーザーの意思で録音中かどうかを管理する最優先フラグ
 
-        h1 {
-            font-size: 1.5rem;
-            color: #1a73e8;
-            margin-bottom: 20px;
-            text-align: center;
-        }
+function initSpeechRecognition() {
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!window.SpeechRecognition) {
+        alert("お使いのブラウザは音声認識に対応していません。");
+        return;
+    }
 
-        .container {
-            width: 100%;
-            max-width: 500px;
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            box-sizing: border-box;
-        }
+    // すでにインスタンスがある場合は使い回すか、新しく作り直す
+    if (!recognition) {
+        recognition = new SpeechRecognition();
+    }
+    
+    recognition.lang = 'ja-JP';
+    recognition.interimResults = true; 
+    recognition.continuous = true;     
 
-        /* 文字起こし結果を表示するエリア */
-        #result-area {
-            width: 100%;
-            height: 300px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            padding: 15px;
-            font-size: 1rem;
-            line-height: 1.6;
-            resize: none;
-            outline: none;
-            box-sizing: border-box;
-            background-color: #fafafa;
-            margin-bottom: 15px;
-        }
-
-        /* ボタンのエリア */
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            margin-bottom: 10px;
-        }
-
-        button {
-            flex: 1;
-            padding: 15px;
-            font-size: 1rem;
-            font-weight: bold;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        /* スタートボタン（緑） */
-        #start-btn {
-            background-color: #34a853;
-            color: white;
-            flex: 2; /* スタートボタンを少し大きめに */
-        }
-
-        #start-btn.recording {
-            background-color: #ea4335; /* 録音中は赤色にする */
-        }
-
-        /* コピーボタン（青） */
-        #copy-btn {
-            background-color: #1a73e8;
-            color: white;
-        }
-
-        /* クリアボタン（灰色） */
-        #clear-btn {
-            background-color: #9aa0a6;
-            color: white;
-        }
-
-        /* 状態を表示するテキスト */
-        #status {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 10px;
-            text-align: center;
-            line-height: 1.4;
-        }
-    </style>
-</head>
-<body>
-
-    <h1>🎙️ 15分連続稼働対応！<br>スマホ文字起こしアプリ</h1>
-
-    <div class="container">
-        <textarea id="result-area" placeholder="ここに文字起こしの結果が表示されます..." readonly></textarea>
-        
-        <div class="btn-group">
-            <button id="start-btn">スタート</button>
-            <button id="copy-btn">コピー</button>
-            <button id="clear-btn">クリア</button>
-        </div>
-
-        <div id="status">停止中</div>
-    </div>
-
-    <script>
-        const startBtn = document.getElementById('start-btn');
-        const copyBtn = document.getElementById('copy-btn');
-        const clearBtn = document.getElementById('clear-btn');
-        const resultArea = document.getElementById('result-area');
-        const statusText = document.getElementById('status');
-
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
-        let recognition;
-        let isRecording = false; 
-        let wakeLock = null; // 画面スリープ防止用の変数
-
-        // 画面スリープを防止する関数（Wake Lock API）
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Screen Wake Lock is active');
-                }
-            } catch (err) {
-                console.error(`${err.name}, ${err.message}`);
+    // 文字起こしデータを受信したとき
+    recognition.onresult = (event) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript + '\n';
             }
         }
-
-        // スリープ防止を解除する関数
-        function releaseWakeLock() {
-            if (wakeLock !== null) {
-                wakeLock.release();
-                wakeLock = null;
-                console.log('Screen Wake Lock was released');
-            }
+        if (finalTranscript) {
+            const textarea = document.getElementById('textarea');
+            textarea.value += finalTranscript;
+            // 常に最新のテキストが見えるように最下部へスクロール
+            textarea.scrollTop = textarea.scrollHeight; 
         }
+    };
 
-        if (!SpeechRecognition) {
-            alert('お使いのブラウザは音声認識に対応していません。iPhoneはSafari、AndroidはChromeで試してみてね！');
+    // ★最重要：ブラウザ側が勝手に終了したときの処理
+    recognition.onend = () => {
+        // ユーザーがストップボタンを押していないのに止まった場合、強制再起動
+        if (isRecording) {
+            console.log("ブラウザによる自動停止を検知。ストップボタンが押されていないため、即座に再起動します。");
+            safeStart();
         } else {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'ja-JP'; 
-            recognition.interimResults = true; 
-            recognition.continuous = true; 
-
-            recognition.onresult = (event) => {
-                let finalTranscript = ''; 
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
-                    }
-                }
-
-                if (finalTranscript !== '') {
-                    resultArea.value += finalTranscript + '\n';
-                    resultArea.scrollTop = resultArea.scrollHeight;
-                }
-            };
-
-            recognition.onerror = (event) => {
-                console.error(event.error);
-                if (event.error === 'not-allowed') {
-                    alert('マイクの許可がありません。スマホの設定からマイクをオンにしてください。');
-                    stopRecording();
-                }
-            };
-
-            // 重要：無音やバックグラウンド移行で切れても、録音フラグがONなら即座に再起動
-            recognition.onend = () => {
-                if (isRecording) {
-                    console.log('音声認識が途切れたため自動再開します');
-                    try {
-                        recognition.start();
-                    } catch (e) {
-                        console.error('再起動に失敗しました:', e);
-                    }
-                }
-            };
+            console.log("ユーザーによって正常に停止されました。");
         }
+    };
 
-        // 録音をスタートする関数
-        async function startRecording() {
-            isRecording = true;
-            try {
-                await recognition.start();
-                await requestWakeLock(); // スリープ防止を有効化
-                startBtn.textContent = 'ストップ';
-                startBtn.classList.add('recording');
-                statusText.innerHTML = '🟢 音声を聞き取っています...<br><small style="color:#34a853;">(スリープ防止機能が作動中)</small>';
-            } catch (e) {
-                console.error(e);
-                isRecording = false;
-            }
+    // エラーが発生したときの処理
+    recognition.onerror = (event) => {
+        console.error("音声認識エラーが発生しました:", event.error);
+        
+        // ネットワーク瞬断や無音状態によるエラー(no-speech)でも、録音中なら再起動を試みる
+        if (isRecording) {
+            // エラー直後は少し時間を空けてから再起動すると安定します（0.5秒後）
+            setTimeout(() => {
+                safeStart();
+            }, 500);
         }
+    };
+}
 
-        // 録音をストップする関数
-        function stopRecording() {
-            isRecording = false;
-            recognition.stop();
-            releaseWakeLock(); // スリープ防止を解除
-            startBtn.textContent = 'スタート';
-            startBtn.classList.remove('recording');
-            statusText.textContent = '停止中';
-        }
+// 安全に音声認識をスタートさせる関数（重複起動エラーを防ぐ）
+function safeStart() {
+    try {
+        recognition.start();
+    } catch (e) {
+        // すでに動いているというエラー（VMまたはInvisibleな状態）などの対策
+        console.log("再起動を試みましたが、すでに起動中か準備中でした:", e.message);
+    }
+}
 
-        // スタート/ストップボタン
-        startBtn.addEventListener('click', () => {
-            if (!recognition) return;
-            if (isRecording) {
-                stopRecording();
-            } else {
-                startRecording();
-            }
-        });
+// ユーザーが「スタートボタン」を押したとき
+function startListening() {
+    if (isRecording) return; // すでに起動中なら何もしない
+    
+    isRecording = true;
+    initSpeechRecognition();
+    safeStart();
+    console.log("文字起こしを開始しました（ストップボタンを押すまで継続します）");
+}
 
-        // コピーボタンの動き
-        copyBtn.addEventListener('click', () => {
-            if (resultArea.value === '') {
-                alert('コピーする文字がありません。');
-                return;
-            }
-            
-            navigator.clipboard.writeText(resultArea.value)
-                .then(() => {
-                    const originalText = copyBtn.textContent;
-                    copyBtn.textContent = 'コピー完了！';
-                    copyBtn.style.backgroundColor = '#34a853';
-                    setTimeout(() => {
-                        copyBtn.textContent = originalText;
-                        copyBtn.style.backgroundColor = '#1a73e8';
-                    }, 2000);
-                })
-                .catch(err => {
-                    alert('コピーに失敗しました。お手数ですが手動で選択してコピーしてください。');
-                });
-        });
-
-        // クリアボタンの動き
-        clearBtn.addEventListener('click', () => {
-            if (confirm('文字起こしの結果を消してもよろしいですか？')) {
-                resultArea.value = '';
-            }
-        });
-
-        // アプリがバックグラウンドから戻ったときに Wake Lock を再取得する対策
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible' && isRecording) {
-                await requestWakeLock();
-            }
-        });
-    </script>
-</body>
-</html>
+// ユーザーが「ストップボタン」を押したとき
+function stopListening() {
+    isRecording = false; // ここでフラグを折ることで、onendでの自動再起動を防ぐ
+    
+    if (recognition) {
+        recognition.stop();
+        console.log("ユーザーの指示により文字起こしを停止しました。");
+    }
+}
