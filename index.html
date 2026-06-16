@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>スマホ対応！かんたん文字起こし</title>
     <style>
-        /* 全体の見た目を整える（デザイン） */
+        /* 全体の見た目を整える（デザイン）- 変更なし */
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
             background-color: #f0f2f5;
@@ -33,7 +33,6 @@
             box-sizing: border-box;
         }
 
-        /* 文字起こし結果を表示するエリア */
         #result-area {
             width: 100%;
             height: 300px;
@@ -49,7 +48,6 @@
             margin-bottom: 20px;
         }
 
-        /* ボタンのエリア（3つのボタンが綺麗に並ぶように調整） */
         .btn-group {
             display: flex;
             gap: 10px;
@@ -72,29 +70,25 @@
             transform: scale(0.98);
         }
 
-        /* スタートボタン（緑） */
         #start-btn {
             background-color: #34a853;
             color: white;
         }
 
         #start-btn.recording {
-            background-color: #ea4335; /* 録音中は赤色にする */
+            background-color: #ea4335;
         }
 
-        /* ★新設：コピーボタン（青） */
         #copy-btn {
             background-color: #1a73e8;
             color: white;
         }
 
-        /* クリアボタン（灰色） */
         #clear-btn {
             background-color: #9aa0a6;
             color: white;
         }
 
-        /* 状態を表示するテキスト */
         #status {
             font-size: 0.9rem;
             color: #666;
@@ -120,7 +114,6 @@
     </div>
 
     <script>
-        // 画面の要素をJavaScriptに登録する
         const startBtn = document.getElementById('start-btn');
         const copyBtn = document.getElementById('copy-btn');
         const clearBtn = document.getElementById('clear-btn');
@@ -131,6 +124,9 @@
         
         let recognition;
         let isRecording = false; 
+        
+        // ★重複防止用の履歴を保存する配列
+        let sentenceHistory = [];
 
         if (!SpeechRecognition) {
             alert('お使いのブラウザは音声認識に対応していません。iPhoneはSafari、AndroidはChromeで試してみてね！');
@@ -142,29 +138,42 @@
 
             // 音声をキャッチしたときの処理
             recognition.onresult = (event) => {
-                let finalTranscript = '';
+                let currentFinals = [];
 
+                // 今回のイベントで「確定」した文字だけを抽出
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const transcript = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
+                        const transcript = event.results[i][0].transcript.trim();
+                        if (transcript) {
+                            currentFinals.push(transcript);
+                        }
                     }
                 }
 
-                if (finalTranscript !== '') {
-                    resultArea.value += finalTranscript + '\n';
-                    resultArea.scrollTop = resultArea.scrollHeight;
-                }
+                // ★新規確定した文字の重複チェック
+                currentFinals.forEach(text => {
+                    // 直近の履歴（3件前まで）に全く同じ文字列が含まれているかチェック
+                    const isDuplicate = sentenceHistory.slice(-3).includes(text);
+                    
+                    if (!isDuplicate) {
+                        // 重複していなければ画面に追加し、履歴にも残す
+                        resultArea.value += text + '\n';
+                        sentenceHistory.push(text);
+                        
+                        // 履歴が大きくなりすぎないように100件超えたら古いものを消す
+                        if (sentenceHistory.length > 100) sentenceHistory.shift();
+                        
+                        resultArea.scrollTop = resultArea.scrollHeight;
+                    } else {
+                        console.log("重複をカットしました:", text);
+                    }
+                });
             };
 
             // エラーが発生したとき
             recognition.onerror = (event) => {
                 console.error("音声認識エラー:", event.error);
-                
-                if (event.error === 'not-allowed') {
-                    alert('マイクの許可がありません。スマホの設定からマイクをオンにしてください。');
-                    stopRecording();
-                } else if (isRecording) {
+                if (isRecording && event.error !== 'not-allowed') {
                     setTimeout(() => {
                         safeStart();
                     }, 500);
@@ -182,7 +191,6 @@
             };
         }
 
-        // 安全に音声認識をスタートさせる関数
         function safeStart() {
             try {
                 recognition.start();
@@ -192,7 +200,6 @@
             }
         }
 
-        // 録音をスタートする関数
         function startRecording() {
             isRecording = true;
             safeStart();
@@ -200,7 +207,6 @@
             startBtn.classList.add('recording');
         }
 
-        // 録音をストップする関数
         function stopRecording() {
             isRecording = false; 
             if (recognition) {
@@ -211,10 +217,8 @@
             statusText.textContent = '停止中';
         }
 
-        // スタート/ストップボタンが押されたとき
         startBtn.addEventListener('click', () => {
             if (!recognition) return;
-
             if (isRecording) {
                 stopRecording();
             } else {
@@ -222,36 +226,30 @@
             }
         });
 
-        // ★新設：コピーボタンが押されたときの動き
         copyBtn.addEventListener('click', () => {
             if (resultArea.value === '') {
                 alert('コピーするテキストがありません。');
                 return;
             }
-
-            // クリップボードにテキストをコピーする（スマホ対応）
             navigator.clipboard.writeText(resultArea.value)
                 .then(() => {
-                    // コピー成功時にボタンの文字を一瞬変えて分かりやすくする
                     const originalText = copyBtn.textContent;
                     copyBtn.textContent = '完了！';
-                    copyBtn.style.backgroundColor = '#107c10'; // 一時的に緑色に
-                    
+                    copyBtn.style.backgroundColor = '#107c10';
                     setTimeout(() => {
                         copyBtn.textContent = originalText;
-                        copyBtn.style.backgroundColor = '#1a73e8'; // 元の青色に戻す
+                        copyBtn.style.backgroundColor = '#1a73e8';
                     }, 1200);
                 })
                 .catch(err => {
-                    console.error('コピーに失敗しました: ', err);
-                    alert('コピーに失敗しました。ブラウザの制限の可能性があります。');
+                    alert('コピーに失敗しました。');
                 });
         });
 
-        // クリアボタンが押されたときの動き
         clearBtn.addEventListener('click', () => {
             if (confirm('文字起こしの結果を消してもよろしいですか？')) {
                 resultArea.value = '';
+                sentenceHistory = []; // 履歴も同時にクリア
             }
         });
     </script>
