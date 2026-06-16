@@ -1,14 +1,81 @@
-let recognition;
-let isRecording = false; // 現在、ユーザーの意思で録音中かどうかを管理する最優先フラグ
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>不屈の文字起こしアプリ</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-right: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #startBtn { background-color: #28a745; color: white; }
+        #startBtn:disabled { background-color: #ccc; }
+        #stopBtn { background-color: #dc3545; color: white; }
+        #stopBtn:disabled { background-color: #ccc; }
+        textarea {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            resize: vertical;
+        }
+        #status {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
 
+<div class="container">
+    <h2>文字起こしアプリ</h2>
+    <p>ストップボタンを押すまで、自動停止しても復活し続けます。</p>
+    
+    <button id="startBtn" onclick="startListening()">スタート</button>
+    <button id="stopBtn" onclick="stopListening()" disabled>ストップ</button>
+    
+    <div id="status">状態: 停止中</div>
+    
+    <textarea id="textarea" placeholder="ここに文字起こしが表示されます..."></textarea>
+</div>
+
+<script>
+let recognition;
+let isRecording = false; 
+
+// 音声認識の初期化関数
 function initSpeechRecognition() {
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
     if (!window.SpeechRecognition) {
-        alert("お使いのブラウザは音声認識に対応していません。");
-        return;
+        alert("お使いのブラウザは音声認識に対応していません。ChromeやSafariでお試しください。");
+        return false;
     }
 
-    // すでにインスタンスがある場合は使い回すか、新しく作り直す
     if (!recognition) {
         recognition = new SpeechRecognition();
     }
@@ -17,7 +84,7 @@ function initSpeechRecognition() {
     recognition.interimResults = true; 
     recognition.continuous = true;     
 
-    // 文字起こしデータを受信したとき
+    // 文字が入力されたとき
     recognition.onresult = (event) => {
         let finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -28,62 +95,74 @@ function initSpeechRecognition() {
         if (finalTranscript) {
             const textarea = document.getElementById('textarea');
             textarea.value += finalTranscript;
-            // 常に最新のテキストが見えるように最下部へスクロール
             textarea.scrollTop = textarea.scrollHeight; 
         }
     };
 
-    // ★最重要：ブラウザ側が勝手に終了したときの処理
+    // 自動停止を検知したとき
     recognition.onend = () => {
-        // ユーザーがストップボタンを押していないのに止まった場合、強制再起動
         if (isRecording) {
-            console.log("ブラウザによる自動停止を検知。ストップボタンが押されていないため、即座に再起動します。");
+            updateStatus("自動停止を検知。再起動中...");
             safeStart();
         } else {
-            console.log("ユーザーによって正常に停止されました。");
+            updateStatus("状態: 停止中");
         }
     };
 
-    // エラーが発生したときの処理
+    // エラーが起きたとき
     recognition.onerror = (event) => {
-        console.error("音声認識エラーが発生しました:", event.error);
-        
-        // ネットワーク瞬断や無音状態によるエラー(no-speech)でも、録音中なら再起動を試みる
+        console.error("音声認識エラー:", event.error);
         if (isRecording) {
-            // エラー直後は少し時間を空けてから再起動すると安定します（0.5秒後）
             setTimeout(() => {
                 safeStart();
             }, 500);
         }
     };
+
+    return true;
 }
 
-// 安全に音声認識をスタートさせる関数（重複起動エラーを防ぐ）
+// 安全に起動する関数
 function safeStart() {
     try {
         recognition.start();
+        updateStatus("状態: 録音・文字起こし中...");
     } catch (e) {
-        // すでに動いているというエラー（VMまたはInvisibleな状態）などの対策
-        console.log("再起動を試みましたが、すでに起動中か準備中でした:", e.message);
+        console.log("再起動を試みましたが、すでに起動中でした:", e.message);
     }
 }
 
-// ユーザーが「スタートボタン」を押したとき
-function startListening() {
-    if (isRecording) return; // すでに起動中なら何もしない
-    
-    isRecording = true;
-    initSpeechRecognition();
-    safeStart();
-    console.log("文字起こしを開始しました（ストップボタンを押すまで継続します）");
+// 状態表示を切り替えるヘルパー関数
+function updateStatus(text) {
+    document.getElementById('status').innerText = text;
 }
 
-// ユーザーが「ストップボタン」を押したとき
+// ★スタートボタンを押したとき
+function startListening() {
+    if (isRecording) return; 
+    
+    // 初期化に失敗（未対応ブラウザなど）したら処理を抜ける
+    if (!initSpeechRecognition()) return;
+
+    isRecording = true;
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+    
+    safeStart();
+}
+
+// ★ストップボタンを押したとき
 function stopListening() {
-    isRecording = false; // ここでフラグを折ることで、onendでの自動再起動を防ぐ
+    isRecording = false; 
+    
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
     
     if (recognition) {
         recognition.stop();
-        console.log("ユーザーの指示により文字起こしを停止しました。");
     }
 }
+</script>
+
+</body>
+</html>
