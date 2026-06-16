@@ -124,8 +124,6 @@
         
         let recognition;
         let isRecording = false; 
-        
-        // ★重複防止用の履歴を保存する配列
         let sentenceHistory = [];
 
         if (!SpeechRecognition) {
@@ -133,14 +131,15 @@
         } else {
             recognition = new SpeechRecognition();
             recognition.lang = 'ja-JP';
-            recognition.interimResults = true;
+            
+            // ★早口対策：話している途中のブレやすい文字は無視し、確定した文字だけを狙い撃ちする
+            recognition.interimResults = false; 
             recognition.continuous = true;
 
             // 音声をキャッチしたときの処理
             recognition.onresult = (event) => {
                 let currentFinals = [];
 
-                // 今回のイベントで「確定」した文字だけを抽出
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     if (event.results[i].isFinal) {
                         const transcript = event.results[i][0].transcript.trim();
@@ -150,19 +149,15 @@
                     }
                 }
 
-                // ★新規確定した文字の重複チェック
                 currentFinals.forEach(text => {
-                    // 直近の履歴（3件前まで）に全く同じ文字列が含まれているかチェック
-                    const isDuplicate = sentenceHistory.slice(-3).includes(text);
+                    // 履歴チェックを直近5件に拡大して、より強固に重複を防ぐ
+                    const isDuplicate = sentenceHistory.slice(-5).includes(text);
                     
                     if (!isDuplicate) {
-                        // 重複していなければ画面に追加し、履歴にも残す
                         resultArea.value += text + '\n';
                         sentenceHistory.push(text);
                         
-                        // 履歴が大きくなりすぎないように100件超えたら古いものを消す
                         if (sentenceHistory.length > 100) sentenceHistory.shift();
-                        
                         resultArea.scrollTop = resultArea.scrollHeight;
                     } else {
                         console.log("重複をカットしました:", text);
@@ -249,7 +244,7 @@
         clearBtn.addEventListener('click', () => {
             if (confirm('文字起こしの結果を消してもよろしいですか？')) {
                 resultArea.value = '';
-                sentenceHistory = []; // 履歴も同時にクリア
+                sentenceHistory = []; 
             }
         });
     </script>
